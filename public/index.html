@@ -1,0 +1,1167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Halal Finder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --linen: #FAF6EF;
+    --linen-deep: #F1EADA;
+    --basil: #1F3D2B;
+    --basil-soft: #2E5240;
+    --saffron: #E3A008;
+    --sumac: #C1443C;
+    --clay: #8C7A6B;
+    --mint: #3F7D58;
+    --paper-line: #DCD2BE;
+    --shadow: 0 1px 0 rgba(31,61,43,0.06);
+    --radius: 4px;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    background: var(--linen);
+    color: var(--basil);
+    font-family: 'Public Sans', sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    background-image:
+      radial-gradient(circle at 1px 1px, rgba(31,61,43,0.05) 1px, transparent 0);
+    background-size: 22px 22px;
+  }
+
+  #app { min-height: 100vh; padding-bottom: 80px; }
+
+  .eyebrow {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--clay);
+  }
+
+  h1, h2, h3 {
+    font-family: 'Fraunces', serif;
+    margin: 0;
+    color: var(--basil);
+    letter-spacing: -0.01em;
+  }
+
+  /* ---------- Top bar ---------- */
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 22px 28px;
+    border-bottom: 1px solid var(--paper-line);
+    background: var(--linen);
+    position: sticky;
+    top: 0;
+    z-index: 20;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+  .brand-mark {
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    background: var(--basil);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--linen);
+  }
+  .brand-name { font-family: 'Fraunces', serif; font-weight: 600; font-size: 20px; }
+  .user-chip {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    padding: 8px 14px;
+    border: 1px solid var(--basil);
+    border-radius: 999px;
+    cursor: pointer;
+    background: transparent;
+    color: var(--basil);
+    transition: background .15s ease;
+  }
+  .user-chip:hover { background: var(--linen-deep); }
+
+  .wrap { max-width: 880px; margin: 0 auto; padding: 0 28px; }
+
+  .back-row {
+    display: flex; align-items: center; gap: 10px;
+    margin: 28px 0 6px;
+    cursor: pointer;
+    color: var(--clay);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    width: fit-content;
+  }
+  .back-row:hover { color: var(--basil); }
+
+  /* ---------- Home / category ticket stubs ---------- */
+  .hero { padding: 56px 0 20px; }
+  .hero h1 { font-size: 40px; line-height: 1.05; max-width: 520px; }
+  .hero p { color: var(--clay); margin-top: 12px; max-width: 460px; font-size: 15px; }
+
+  .stub-list { display: flex; flex-direction: column; gap: 16px; margin: 28px 0 50px; }
+
+  .stub {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    background: #fff;
+    border: 1px solid var(--paper-line);
+    border-radius: var(--radius);
+    padding: 22px 26px;
+    cursor: pointer;
+    box-shadow: var(--shadow);
+    transition: transform .12s ease, box-shadow .12s ease;
+  }
+  .stub:hover { transform: translateY(-2px); box-shadow: 0 8px 18px rgba(31,61,43,0.08); }
+
+  .stub::after {
+    content: "";
+    position: absolute;
+    right: 108px; top: -1px; bottom: -1px;
+    width: 0;
+    border-left: 2px dashed var(--paper-line);
+  }
+  .stub-icon {
+    width: 52px; height: 52px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .stub-body { flex: 1; }
+  .stub-body .eyebrow { margin-bottom: 4px; }
+  .stub-body h3 { font-size: 21px; }
+  .stub-body p { margin: 4px 0 0; color: var(--clay); font-size: 13px; }
+  .stub-count {
+    width: 108px;
+    text-align: center;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .stub-count .num { font-size: 22px; font-weight: 600; display: block; }
+  .stub-count .lbl { font-size: 10px; color: var(--clay); text-transform: uppercase; letter-spacing: .08em; }
+
+  /* ---------- Section header ---------- */
+  .section-head { margin: 28px 0 18px; }
+  .section-head h2 { font-size: 28px; }
+
+  input[type="text"], input[type="search"], input[type="url"], input[type="email"] {
+    width: 100%;
+    font-family: 'Public Sans', sans-serif;
+    font-size: 14px;
+    padding: 12px 14px;
+    border: 1px solid var(--paper-line);
+    border-radius: var(--radius);
+    background: #fff;
+    color: var(--basil);
+    margin-bottom: 18px;
+  }
+  input.maps-input {
+    padding: 18px 18px;
+    font-size: 16px;
+    min-height: 56px;
+    border-width: 1.5px;
+  }
+  input.maps-input:focus { border-color: var(--basil); }
+  input:focus, textarea:focus, select:focus { outline: 2px solid var(--basil); outline-offset: 1px; }
+
+  /* ---------- City list ---------- */
+  .city-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 4px;
+    border-bottom: 1px dashed var(--paper-line);
+    cursor: pointer;
+  }
+  .city-row:hover .city-name { color: var(--sumac); }
+  .city-name { font-family: 'Fraunces', serif; font-size: 18px; transition: color .12s ease; }
+  .city-meta { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--clay); }
+
+  .empty-state {
+    padding: 40px 0; color: var(--clay); font-size: 14px;
+    border-top: 1px dashed var(--paper-line); margin-top: 8px;
+  }
+  .empty-state a { color: var(--sumac); font-weight: 600; cursor: pointer; }
+
+  /* ---------- Place cards (ticket) ---------- */
+  .ticket-grid { display: flex; flex-direction: column; gap: 14px; margin-top: 10px; }
+
+  .ticket {
+    position: relative;
+    display: flex;
+    background: #fff;
+    border: 1px solid var(--paper-line);
+    border-radius: var(--radius);
+    overflow: hidden;
+    cursor: pointer;
+    box-shadow: var(--shadow);
+  }
+  .ticket:hover { box-shadow: 0 8px 18px rgba(31,61,43,0.08); }
+
+  .ticket-main { flex: 1; padding: 20px 22px; }
+  .ticket-main h3 { font-size: 19px; }
+  .ticket-addr { color: var(--clay); font-size: 13px; margin-top: 4px; }
+  .ticket-addr a { color: var(--clay); text-decoration: none; }
+  .ticket-addr a:hover { color: var(--sumac); text-decoration: underline; }
+
+  .stamp {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    display: inline-block;
+    margin-top: 12px;
+    padding: 5px 10px;
+    border: 1.5px dashed currentColor;
+    border-radius: 999px;
+    transform: rotate(-2deg);
+  }
+  .stamp.certified { color: var(--mint); }
+  .stamp.community { color: #2E6B8C; }
+  .stamp.self { color: var(--saffron); }
+
+  .ticket-notch {
+    width: 0;
+    border-left: 2px dashed var(--paper-line);
+    margin: 14px 0;
+  }
+
+  .ticket-score {
+    width: 88px;
+    flex-shrink: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 4px;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .ticket-score .heart { color: var(--sumac); font-size: 20px; }
+  .ticket-score .score { font-weight: 600; font-size: 16px; }
+
+  /* ---------- Detail / certificate ---------- */
+  .certificate {
+    background: #fff;
+    border: 1px solid var(--paper-line);
+    border-radius: 6px;
+    padding: 36px;
+    margin-top: 20px;
+    box-shadow: 0 10px 26px rgba(31,61,43,0.06);
+  }
+  .cert-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; }
+  .cert-top h2 { font-size: 30px; }
+  .cert-cat { color: var(--clay); font-size: 13px; margin-top: 6px; }
+
+  .big-stamp {
+    width: 92px; height: 92px;
+    border-radius: 50%;
+    border: 2.5px dashed currentColor;
+    display: flex; align-items: center; justify-content: center;
+    text-align: center;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    transform: rotate(6deg);
+    flex-shrink: 0;
+    padding: 6px;
+  }
+  .big-stamp.certified { color: var(--mint); }
+  .big-stamp.community { color: #2E6B8C; }
+  .big-stamp.self { color: var(--saffron); }
+
+  .cert-divider { border-top: 1px dashed var(--paper-line); margin: 26px 0; }
+
+  .cert-row { display: flex; gap: 14px; padding: 10px 0; font-size: 14px; }
+  .cert-row .k { width: 130px; flex-shrink: 0; color: var(--clay); font-family: 'IBM Plex Mono', monospace; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; padding-top: 2px; }
+  .cert-row .v a { color: var(--basil); text-decoration: underline; }
+  .cert-row .v a:hover { color: var(--sumac); }
+
+  .vote-box {
+    margin-top: 26px;
+    padding: 22px;
+    background: var(--linen-deep);
+    border-radius: var(--radius);
+  }
+  .vote-box h3 { font-size: 16px; }
+  .vote-score-line { display: flex; align-items: center; gap: 8px; margin: 8px 0 16px; font-family: 'IBM Plex Mono', monospace; color: var(--sumac); font-weight: 600; }
+  .vote-buttons { display: flex; gap: 10px; flex-wrap: wrap; }
+
+  button {
+    font-family: 'Public Sans', sans-serif;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+    border-radius: 999px;
+    border: 1.5px solid var(--basil);
+    padding: 11px 18px;
+    background: transparent;
+    color: var(--basil);
+    transition: background .12s ease, color .12s ease;
+  }
+  button:hover { background: var(--basil); color: var(--linen); }
+  button.primary { background: var(--basil); color: var(--linen); }
+  button.primary:hover { background: var(--basil-soft); }
+  button.confirm.active { background: var(--mint); border-color: var(--mint); color: #fff; }
+  button.dispute.active { background: var(--sumac); border-color: var(--sumac); color: #fff; }
+
+  /* ---------- Submit form ---------- */
+  .field { margin-bottom: 18px; }
+  .field label {
+    display: block;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .07em;
+    color: var(--clay);
+    margin-bottom: 7px;
+  }
+  textarea {
+    width: 100%; font-family: 'Public Sans', sans-serif; font-size: 14px;
+    padding: 12px 14px; border: 1px solid var(--paper-line); border-radius: var(--radius);
+    resize: vertical; min-height: 80px; background: #fff; color: var(--basil);
+  }
+  select {
+    width: 100%; font-family: 'Public Sans', sans-serif; font-size: 14px;
+    padding: 12px 14px; border: 1px solid var(--paper-line); border-radius: var(--radius);
+    background: #fff; color: var(--basil);
+  }
+  .category-picker { display: flex; gap: 10px; }
+  .cat-pill {
+    flex: 1; text-align: center; padding: 12px; border-radius: var(--radius);
+    border: 1.5px solid var(--paper-line); cursor: pointer; font-size: 13px; font-weight: 600;
+  }
+  .cat-pill.selected { border-color: var(--basil); background: var(--linen-deep); }
+  .checkbox-row { display: flex; align-items: center; gap: 10px; }
+  .checkbox-row input { width: 17px; height: 17px; }
+  .checkbox-row label { margin: 0; text-transform: none; font-family: 'Public Sans', sans-serif; font-size: 14px; color: var(--basil); }
+  .confidence-desc { font-size: 12px; color: var(--clay); margin-top: 6px; }
+
+  .toast {
+    position: fixed; bottom: 26px; left: 50%; transform: translateX(-50%);
+    background: var(--basil); color: var(--linen);
+    padding: 13px 22px; border-radius: 999px;
+    font-family: 'IBM Plex Mono', monospace; font-size: 12px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+    z-index: 50;
+    opacity: 0; pointer-events: none;
+    transition: opacity .2s ease, transform .2s ease;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(-6px); }
+
+  .note-banner {
+    background: #FFF7E4; border: 1px dashed var(--saffron); border-radius: var(--radius);
+    padding: 14px 18px; font-size: 13px; color: #6b4e05; margin: 20px 0;
+  }
+
+  /* ---------- Login ---------- */
+  .login-screen {
+    min-height: 100vh;
+    display: flex; align-items: center; justify-content: center;
+    padding: 24px;
+  }
+  .login-card {
+    width: 100%; max-width: 380px;
+    background: #fff;
+    border: 1px solid var(--paper-line);
+    border-radius: 6px;
+    padding: 40px 34px;
+    box-shadow: 0 10px 26px rgba(31,61,43,0.08);
+    text-align: center;
+  }
+  .login-mark {
+    width: 52px; height: 52px; border-radius: 50%;
+    background: var(--basil);
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 18px;
+  }
+  .login-card h1 { font-size: 24px; margin-bottom: 6px; }
+  .login-card p { color: var(--clay); font-size: 13px; margin: 0 0 24px; }
+  .login-card .field { text-align: left; margin-bottom: 22px; }
+  .login-error { color: var(--sumac); font-size: 12px; margin: -14px 0 18px; text-align: left; }
+  .sign-out {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--clay);
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+  }
+  .sign-out:hover { color: var(--sumac); }
+  .topbar-right { display: flex; align-items: center; gap: 14px; }
+
+  .field-box {
+    border: 1.5px solid var(--paper-line);
+    border-radius: var(--radius);
+    padding: 16px 16px 13px;
+    text-align: center;
+    background: #fff;
+    margin-bottom: 16px;
+    transition: border-color .12s ease;
+  }
+  .field-box:focus-within { border-color: var(--basil); }
+  .field-box .box-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--clay);
+    margin-bottom: 7px;
+  }
+  .field-box input {
+    border: none !important;
+    text-align: center;
+    font-size: 17px;
+    padding: 2px 0 !important;
+    margin: 0 !important;
+    background: transparent !important;
+    width: 100%;
+  }
+  .field-box input:focus { outline: none !important; }
+
+  .verify-icon {
+    width: 60px; height: 60px; border-radius: 50%;
+    border: 2px dashed var(--saffron);
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 18px;
+  }
+  .verify-email { font-weight: 600; color: var(--basil); }
+  .verify-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 22px; }
+  .resend-link {
+    font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--clay);
+    cursor: pointer; text-transform: uppercase; letter-spacing: .06em;
+  }
+  .resend-link:hover { color: var(--basil); }
+
+  .comment-form { margin-top: 22px; }
+  .comment-form textarea {
+    width: 100%; font-family: 'Public Sans', sans-serif; font-size: 14px;
+    padding: 12px 14px; border: 1px solid var(--paper-line); border-radius: var(--radius);
+    resize: vertical; min-height: 64px; background: #fff; color: var(--basil);
+    margin-bottom: 10px;
+  }
+  .comment-list { margin-top: 18px; display: flex; flex-direction: column; gap: 12px; }
+  .comment-card {
+    background: #fff;
+    border: 1px solid var(--paper-line);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+  }
+  .comment-user {
+    display: inline-block;
+    background: var(--mint);
+    color: #fff;
+    font-weight: 600;
+    font-size: 11px;
+    letter-spacing: .03em;
+    padding: 5px 13px;
+    border-radius: 999px;
+    margin-bottom: 9px;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .comment-text { font-size: 14px; color: var(--basil); line-height: 1.5; }
+  .comment-time { font-size: 11px; color: var(--clay); margin-top: 6px; font-family: 'IBM Plex Mono', monospace; display: flex; align-items: center; gap: 10px; }
+  .comment-delete { cursor: pointer; text-transform: uppercase; letter-spacing: .05em; }
+  .comment-delete:hover { color: var(--sumac); }
+  .comment-empty { font-size: 13px; color: var(--clay); margin-top: 14px; }
+
+  @media (max-width: 560px) {
+    .topbar, .wrap { padding-left: 18px; padding-right: 18px; }
+    .stub { flex-wrap: wrap; }
+    .stub::after { display: none; }
+    .stub-count { width: auto; margin-left: auto; }
+    .ticket { flex-direction: column; }
+    .ticket-notch { display: none; }
+    .ticket-score { flex-direction: row; width: 100%; padding: 10px 22px 18px; }
+    .cert-top { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+   API LAYER
+   Change API_BASE to your deployed backend URL, e.g.
+   "https://halal-finder-api.onrender.com" — or leave as "" if
+   this HTML file is served BY that same backend (see README).
+   ============================================================ */
+const API_BASE = "";
+
+async function api(path, options = {}) {
+  let res;
+  try {
+    res = await fetch(API_BASE + path, {
+      headers: { "Content-Type": "application/json" },
+      ...options
+    });
+  } catch (networkErr) {
+    throw new Error("Can't reach the server. Is the backend running, and is API_BASE set correctly?");
+  }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || "Something went wrong.");
+  return data;
+}
+
+const CATEGORIES = {
+  restaurant:  { label: "Restaurants",  sub: "Halal-friendly dining",           icon: "fork" },
+  supermarket: { label: "Supermarkets", sub: "Halal food sections & stores",    icon: "cart" },
+  butcher:     { label: "Butchers",     sub: "Halal meat & butcher shops",      icon: "shop" }
+};
+
+const CONFIDENCE = {
+  certified:  { label: "Certified",           cls: "certified", desc: "An official halal certificate has been seen (e.g. displayed in-store)." },
+  community:  { label: "Community Verified",  cls: "community", desc: "No certificate seen, but multiple community members confirm it's halal." },
+  self:       { label: "Self-Reported",       cls: "self",      desc: "The submitter believes it's halal but hasn't seen proof yet." }
+};
+
+const CITIES = [
+  "Berlin", "Hamburg", "München", "Köln", "Frankfurt am Main", "Stuttgart",
+  "Düsseldorf", "Leipzig", "Dortmund", "Essen", "Bremen", "Dresden",
+  "Hannover", "Nürnberg", "Duisburg", "Bochum", "Wuppertal", "Bielefeld",
+  "Bonn", "Münster", "Karlsruhe", "Mannheim", "Augsburg", "Wiesbaden",
+  "Mönchengladbach", "Gelsenkirchen", "Aachen", "Braunschweig", "Kiel",
+  "Chemnitz", "Halle (Saale)", "Magdeburg", "Freiburg im Breisgau",
+  "Krefeld", "Lübeck", "Oberhausen", "Erfurt", "Mainz", "Rostock", "Kassel"
+];
+
+function mapsUrl(p) {
+  // p.address is now expected to BE a Google Maps link (validated at submit time).
+  return p.address;
+}
+
+function trustColor(score) {
+  if (score > 0) return '#3F7D58'; // mint — community leans confirmed
+  if (score < 0) return '#C1443C'; // sumac — community leans disputed
+  return '#8C7A6B'; // clay — no consensus yet
+}
+
+function isValidMapsLink(url) {
+  return /^https?:\/\/(www\.)?(maps\.google\.[a-z.]+|google\.[a-z.]+\/maps|goo\.gl\/maps|maps\.app\.goo\.gl)\//i.test(url.trim());
+}
+
+/* ============================================================
+   APP STATE + ROUTING
+   ============================================================ */
+const state = { view: "login", category: null, city: null, placeId: null, username: "Guest", email: null, userId: null };
+let loginError = "";
+let pendingName = "";
+let pendingEmail = "";
+
+function go(view, patch = {}) {
+  Object.assign(state, { view }, patch);
+  render();
+  window.scrollTo({ top: 0, behavior: "instant" });
+}
+
+function toast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), 2600);
+}
+
+/* ============================================================
+   ICONS (inline SVG, minimal line style)
+   ============================================================ */
+function icon(name, color) {
+  const icons = {
+    fork: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="1.8"><path d="M6 2v8M9 2v8M6 10c0 2-1.5 2-1.5 4v8M9 10c0-2-1.5-2-1.5-4"/><path d="M17 2c-2 0-3 2-3 5s1 5 3 5v10"/></svg>`,
+    cart: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="1.8"><circle cx="9" cy="20" r="1.3"/><circle cx="18" cy="20" r="1.3"/><path d="M2 3h2l2.6 12.6a2 2 0 002 1.4h8.8a2 2 0 002-1.6L21 8H6"/></svg>`,
+    shop: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="1.8"><path d="M3 9l1-5h16l1 5"/><path d="M3 9a2 2 0 004 0 2 2 0 004 0 2 2 0 004 0 2 2 0 004 0"/><path d="M5 9v10h14V9"/><path d="M9 19v-6h6v6"/></svg>`,
+    heart: `<svg width="16" height="16" viewBox="0 0 24 24" fill="${color}" stroke="none"><path d="M12 21s-7.5-4.9-10-9.3C.4 8.1 2.1 4 6 4c2.2 0 3.7 1.2 6 3.6C14.3 5.2 15.8 4 18 4c3.9 0 5.6 4.1 4 7.7C19.5 16.1 12 21 12 21z"/></svg>`,
+    check: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5" stroke-width="2"/><path d="M7.5 12.5l3 3 6-6.5"/></svg>`,
+    pin: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2"><path d="M12 21s7-6.6 7-12a7 7 0 10-14 0c0 5.4 7 12 7 12z"/><circle cx="12" cy="9" r="2.4"/></svg>`
+  };
+  return icons[name] || "";
+}
+
+/* ============================================================
+   LOGIN + EMAIL VERIFICATION
+   Flow: ask for email first. If it's already known, log straight in
+   (no name re-entry, no re-verification). If it's new, ask for a
+   name, then show the verify step.
+   ============================================================ */
+function renderLogin() {
+  return `
+    <div class="login-screen">
+      <div class="login-card">
+        <div class="login-mark">${icon('heart', '#FAF6EF')}</div>
+        <h1>Halal Finder</h1>
+        <p>Credentials to enter the community of halal food lovers.</p>
+        <form onsubmit="handleEmailSubmit(event)">
+          <div class="field-box">
+            <div class="box-label">Email</div>
+            <input type="email" id="loginEmail" placeholder="you@example.com" autofocus required>
+          </div>
+          ${loginError ? `<div class="login-error">${loginError}</div>` : ""}
+          <button type="submit" class="primary" style="width:100%;">Continue</button>
+        </form>
+      </div>
+    </div>`;
+}
+
+async function handleEmailSubmit(e) {
+  e.preventDefault();
+  const email = document.getElementById("loginEmail").value.trim();
+  const emailLooksValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  if (!emailLooksValid) { loginError = "Enter a valid email address."; render(); return; }
+
+  try {
+    const lookup = await api(`/api/users/by-email?email=${encodeURIComponent(email)}`);
+    loginError = "";
+    pendingEmail = email;
+
+    if (lookup.exists) {
+      const user = lookup.user;
+      state.userId = user.id;
+      state.name = user.name;
+      state.email = email;
+      state.username = user.name;
+
+      if (user.isEmailVerified) {
+        // Known + already verified — straight in, no re-verification.
+        go("home");
+      } else {
+        // Known but somehow never finished verifying — send back to that step.
+        pendingName = user.name;
+        go("verify");
+      }
+    } else {
+      // New email — need a name before we create the account.
+      go("name");
+    }
+  } catch (err) {
+    loginError = err.message;
+    render();
+  }
+}
+
+function renderNameStep() {
+  return `
+    <div class="login-screen">
+      <div class="login-card">
+        <div class="login-mark">${icon('heart', '#FAF6EF')}</div>
+        <h1>What's your name?</h1>
+        <p>New here — we'll use this on your submissions and comments.</p>
+        <form onsubmit="handleNameSubmit(event)">
+          <div class="field-box">
+            <div class="box-label">Name</div>
+            <input type="text" id="loginName" placeholder="Your name" autofocus required>
+          </div>
+          ${loginError ? `<div class="login-error">${loginError}</div>` : ""}
+          <button type="submit" class="primary" style="width:100%;">Continue</button>
+        </form>
+      </div>
+    </div>`;
+}
+
+async function handleNameSubmit(e) {
+  e.preventDefault();
+  const name = document.getElementById("loginName").value.trim();
+  if (!name) { loginError = "Enter your name."; render(); return; }
+
+  try {
+    const user = await api('/api/signup', {
+      method: 'POST',
+      body: JSON.stringify({ name, email: pendingEmail })
+    });
+    loginError = "";
+    pendingName = name;
+    state.userId = user.id;
+    go("verify");
+  } catch (err) {
+    loginError = err.message;
+    render();
+  }
+}
+
+function renderVerify() {
+  return `
+    <div class="login-screen">
+      <div class="login-card">
+        <div class="verify-icon">${icon('heart', '#E3A008')}</div>
+        <h1>Check your inbox</h1>
+        <p>We've sent a verification link to<br><span class="verify-email">${pendingEmail}</span>.
+        Click it, then come back and continue below.</p>
+        <div class="verify-actions">
+          <button class="primary" onclick="confirmVerified()">I've verified — Continue</button>
+          <span class="resend-link" onclick="toast('Verification email re-sent (demo)')">Resend email</span>
+          <span class="resend-link" onclick="go('login')">&larr; Back</span>
+        </div>
+      </div>
+    </div>`;
+}
+
+async function confirmVerified() {
+  // NOTE: mocked confirmation — flips is_email_verified on the server
+  // immediately rather than checking a real clicked link. Swap in a
+  // real emailed token/link when you add an email-sending provider.
+  try {
+    await api('/api/verify-email', { method: 'POST', body: JSON.stringify({ userId: state.userId }) });
+    state.name = pendingName;
+    state.email = pendingEmail;
+    state.username = pendingName;
+    toast("Email verified!");
+    go("home");
+  } catch (err) {
+    toast(err.message);
+  }
+}
+
+function signOut() {
+  state.email = null;
+  state.name = null;
+  state.userId = null;
+  state.username = "Guest";
+  loginError = "";
+  pendingName = "";
+  pendingEmail = "";
+  go("login");
+}
+
+/* ============================================================
+   TOPBAR
+   ============================================================ */
+function renderTopbar() {
+  return `
+    <div class="topbar">
+      <div class="brand" onclick="go('home')">
+        <div class="brand-mark">${icon('heart', '#FAF6EF')}</div>
+        <div class="brand-name">Halal Finder</div>
+      </div>
+      <div class="topbar-right">
+        <div class="user-chip" onclick="promptUsername()">${state.username}</div>
+        <div class="sign-out" onclick="signOut()">Sign out</div>
+      </div>
+    </div>`;
+}
+
+function loadingShell() {
+  return `${renderTopbar()}<div class="wrap"><p style="padding:60px 0;color:var(--clay);font-family:'IBM Plex Mono',monospace;font-size:12px;text-transform:uppercase;letter-spacing:.08em;">Loading…</p></div>`;
+}
+
+function accentBg(key) {
+  return { restaurant: "#E9F2EC", supermarket: "#EAF1F6", butcher: "#FBEDEA" }[key];
+}
+function accentFg(key) {
+  return { restaurant: "#3F7D58", supermarket: "#2E6B8C", butcher: "#C1443C" }[key];
+}
+
+/* ============================================================
+   HOME
+   ============================================================ */
+async function renderHome() {
+  const counts = await api('/api/category-counts');
+
+  const stubs = Object.entries(CATEGORIES).map(([key, c]) => `
+    <div class="stub" onclick="go('cities', {category:'${key}'})">
+      <div class="stub-icon" style="background:${accentBg(key)}">${icon(c.icon, accentFg(key))}</div>
+      <div class="stub-body">
+        <div class="eyebrow">Browse</div>
+        <h3>${c.label}</h3>
+        <p>${c.sub}</p>
+      </div>
+      <div class="stub-count">
+        <span class="num">${counts[key] || 0}</span>
+        <span class="lbl">Listed</span>
+      </div>
+    </div>`).join("");
+
+  return `
+    ${renderTopbar()}
+    <div class="wrap">
+      <div class="hero">
+        <div class="eyebrow">Community-verified</div>
+        <h1>Find halal places you can actually trust.</h1>
+        <p>Every listing carries a confidence stamp — certified, community-verified, or self-reported — plus real votes from people who've been there.</p>
+      </div>
+      <div class="stub-list">${stubs}</div>
+    </div>`;
+}
+
+/* ============================================================
+   CITIES
+   ============================================================ */
+async function renderCities() {
+  const cat = CATEGORIES[state.category];
+  const cities = await api(`/api/cities?category=${state.category}`); // [{city, count}]
+
+  const rows = cities.map(c => `
+    <div class="city-row" onclick="go('places', {city:'${c.city}'})">
+      <span class="city-name">${c.city}</span>
+      <span class="city-meta">${c.count} listed →</span>
+    </div>`).join("");
+
+  const empty = cities.length === 0 ? `
+    <div class="empty-state">
+      No ${cat.label.toLowerCase()} submitted yet. <a onclick="go('submit', {city:null})">Be the first to add one →</a>
+    </div>` : "";
+
+  return `
+    ${renderTopbar()}
+    <div class="wrap">
+      <div class="back-row" onclick="go('home')">&larr; All categories</div>
+      <div class="section-head">
+        <div class="eyebrow">${cat.label}</div>
+        <h2>Choose a city</h2>
+      </div>
+      <input type="search" id="citySearch" placeholder="Search cities…" oninput="filterCities(this.value)">
+      <div id="cityRows">${rows}</div>
+      ${empty}
+      <div style="margin-top:26px;">
+        <button class="primary" onclick="go('submit', {city:null})">+ Submit a ${cat.label.toLowerCase().slice(0, -1)}</button>
+      </div>
+    </div>`;
+}
+
+function filterCities(q) {
+  const rows = document.querySelectorAll("#cityRows .city-row");
+  rows.forEach(r => {
+    const name = r.querySelector(".city-name").textContent.toLowerCase();
+    r.style.display = name.includes(q.toLowerCase()) ? "flex" : "none";
+  });
+}
+
+/* ============================================================
+   PLACES (city view)
+   ============================================================ */
+async function renderPlaces() {
+  const cat = CATEGORIES[state.category];
+  const list = await api(`/api/places?category=${state.category}&city=${encodeURIComponent(state.city)}`);
+  list.sort((a, b) => b.trustScore - a.trustScore);
+
+  const cards = list.map(p => {
+    const conf = CONFIDENCE[p.confidence];
+    return `
+      <div class="ticket" onclick="go('detail', {placeId:'${p.id}'})">
+        <div class="ticket-main">
+          <h3>${p.name}</h3>
+          <div class="ticket-addr" onclick="event.stopPropagation()"><a href="${p.address}" target="_blank" rel="noopener">📍 View on Google Maps ↗</a></div>
+          <span class="stamp ${conf.cls}">${conf.label}</span>
+        </div>
+        <div class="ticket-notch"></div>
+        <div class="ticket-score">
+          <span class="heart">${icon('check', trustColor(p.trustScore))}</span>
+          <span class="score" style="color:${trustColor(p.trustScore)}">${p.trustScore}</span>
+        </div>
+      </div>`;
+  }).join("");
+
+  const empty = list.length === 0 ? `
+    <div class="empty-state">
+      Nothing here yet for ${state.city}. <a onclick="go('submit')">Add the first one →</a>
+    </div>` : "";
+
+  return `
+    ${renderTopbar()}
+    <div class="wrap">
+      <div class="back-row" onclick="go('cities')">&larr; ${cat.label} cities</div>
+      <div class="section-head">
+        <div class="eyebrow">${cat.label} in</div>
+        <h2>${state.city}</h2>
+      </div>
+      <div class="ticket-grid">${cards}</div>
+      ${empty}
+      <div style="margin-top:26px;">
+        <button class="primary" onclick="go('submit')">+ Submit a place here</button>
+      </div>
+    </div>`;
+}
+
+/* ============================================================
+   DETAIL
+   ============================================================ */
+async function renderDetail() {
+  const p = await api(`/api/places/${state.placeId}`);
+  const voteInfo = state.userId
+    ? await api(`/api/places/${state.placeId}/my-vote?userId=${state.userId}`)
+    : { voteType: null };
+  const myVote = voteInfo.voteType;
+  const comments = await api(`/api/places/${state.placeId}/comments`);
+
+  const conf = CONFIDENCE[p.confidence];
+  const cat = CATEGORIES[p.category];
+
+  return `
+    ${renderTopbar()}
+    <div class="wrap">
+      <div class="back-row" onclick="go('places', {category:'${p.category}', city:'${p.city}'})">&larr; Back to list</div>
+
+      <div class="certificate">
+        <div class="cert-top">
+          <div>
+            <h2>${p.name}</h2>
+            <div class="cert-cat">${cat.label} · ${p.city}</div>
+          </div>
+          <div class="big-stamp ${conf.cls}">${conf.label}</div>
+        </div>
+
+        <div class="cert-divider"></div>
+
+        <div class="cert-row">
+          <div class="k">Location</div>
+          <div class="v"><a href="${mapsUrl(p)}" target="_blank" rel="noopener">📍 Open in Google Maps ↗</a></div>
+        </div>
+        <div class="cert-row">
+          <div class="k">${p.category === 'restaurant' ? 'Cuisine' : p.category === 'supermarket' ? 'Store type' : 'Specialty'}</div>
+          <div class="v">${p.details || "Not specified"}</div>
+        </div>
+        <div class="cert-row">
+          <div class="k">Certificate</div>
+          <div class="v">${p.hasCertificate ? "On file" : "Not on file"}</div>
+        </div>
+        <div class="cert-row">
+          <div class="k">Submitted by</div>
+          <div class="v">${p.submittedBy}</div>
+        </div>
+        ${p.notes ? `<div class="cert-row"><div class="k">Notes</div><div class="v">${p.notes}</div></div>` : ""}
+
+        <div class="vote-box">
+          <h3>Is this really halal?</h3>
+          <div class="vote-score-line" style="color:${trustColor(p.trustScore)}">${icon('check', trustColor(p.trustScore))} Trust score: ${p.trustScore}</div>
+          <div class="vote-buttons">
+            <button class="confirm ${myVote === 'up' ? 'active' : ''}" onclick="castVote('${p.id}', 'up')">👍 Confirm Halal (${p.upvotes})</button>
+            <button class="dispute ${myVote === 'down' ? 'active' : ''}" onclick="castVote('${p.id}', 'down')">👎 Dispute (${p.downvotes})</button>
+          </div>
+        </div>
+
+        <div class="comment-form">
+          <h3>Leave a comment</h3>
+          <textarea id="commentText" placeholder="e.g. I only saw a fake halal certificate…"></textarea>
+          <button onclick="postComment('${p.id}')">Post comment</button>
+        </div>
+
+        <div class="comment-list">
+          ${comments.length === 0
+            ? `<div class="comment-empty">No comments yet.</div>`
+            : comments.map(c => `
+              <div class="comment-card">
+                <span class="comment-user">${escapeHtml(c.username)}</span>
+                <div class="comment-text">${escapeHtml(c.text)}</div>
+                <div class="comment-time">
+                  ${formatTimeAgo(c.createdAt)}
+                  ${c.userId === state.userId ? `<span class="comment-delete" onclick="deleteComment('${c.id}')">Delete</span>` : ""}
+                </div>
+              </div>`).join("")}
+        </div>
+      </div>
+    </div>`;
+}
+
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function formatTimeAgo(isoLike) {
+  // SQLite datetime('now') is UTC without a 'Z' suffix — add it so Date parses correctly.
+  const date = new Date(isoLike.replace(" ", "T") + "Z");
+  const diffMin = Math.round((Date.now() - date.getTime()) / 60000);
+  if (diffMin < 1) return "just now";
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHr = Math.round(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h ago`;
+  return date.toLocaleDateString();
+}
+
+async function postComment(placeId) {
+  if (!state.userId) { toast("Please sign in first."); return; }
+  const textEl = document.getElementById("commentText");
+  const text = textEl.value.trim();
+  if (!text) return;
+
+  try {
+    await api(`/api/places/${placeId}/comments`, {
+      method: 'POST',
+      body: JSON.stringify({ userId: state.userId, text })
+    });
+    render();
+  } catch (err) {
+    toast(err.message);
+  }
+}
+
+async function deleteComment(commentId) {
+  if (!confirm("Delete this comment?")) return;
+  try {
+    await fetch(`/api/comments/${commentId}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: state.userId })
+    });
+    render();
+  } catch (err) {
+    toast("Couldn't delete comment.");
+  }
+}
+
+async function castVote(placeId, type) {
+  if (!state.userId) { toast("Please sign in first."); return; }
+  try {
+    await api(`/api/places/${placeId}/vote`, {
+      method: 'POST',
+      body: JSON.stringify({ userId: state.userId, voteType: type })
+    });
+    render(); // re-fetches this place's fresh vote counts from the server
+  } catch (err) {
+    toast(err.message);
+  }
+}
+
+/* ============================================================
+   SUBMIT
+   ============================================================ */
+let submitCategory = null;
+function renderSubmit() {
+  submitCategory = state.category || submitCategory || "restaurant";
+  const cityPrefill = state.city || "";
+
+  const catPills = Object.entries(CATEGORIES).map(([key, c]) => `
+    <div class="cat-pill ${submitCategory === key ? 'selected' : ''}" onclick="selectSubmitCategory('${key}')">${c.label}</div>
+  `).join("");
+
+  const confOptions = Object.entries(CONFIDENCE).map(([key, c]) =>
+    `<option value="${key}">${c.label}</option>`).join("");
+
+  return `
+    ${renderTopbar()}
+    <div class="wrap">
+      <div class="back-row" onclick="go('home')">&larr; Cancel</div>
+      <div class="section-head">
+        <div class="eyebrow">New listing</div>
+        <h2>Submit a place</h2>
+      </div>
+
+      <form id="submitForm" onsubmit="handleSubmit(event)">
+        <div class="field">
+          <label>Category</label>
+          <div class="category-picker" id="catPicker">${catPills}</div>
+        </div>
+        <div class="field"><label>Name</label><input type="text" id="f_name" required></div>
+        <div class="field">
+          <label>Google Maps link</label>
+          <input type="url" id="f_address" class="maps-input" placeholder="https://maps.app.goo.gl/…" required>
+          <div class="confidence-desc">Open the place in Google Maps, tap Share, copy the link, and paste it here — this is what powers the "Open in Maps" button.</div>
+        </div>
+        <div class="field">
+          <label>City</label>
+          <select id="f_city" required>
+            <option value="" disabled ${cityPrefill ? "" : "selected"}>Select a city…</option>
+            ${CITIES.map(c => `<option value="${c}" ${c === cityPrefill ? "selected" : ""}>${c}</option>`).join("")}
+          </select>
+        </div>
+        <div class="field"><label>Cuisine / store type / specialty</label><input type="text" id="f_details"></div>
+        <div class="field">
+          <label>Confidence level</label>
+          <select id="f_confidence" onchange="updateConfDesc(this.value)">${confOptions}</select>
+          <div class="confidence-desc" id="confDesc">${CONFIDENCE.certified.desc}</div>
+        </div>
+        <div class="field checkbox-row">
+          <input type="checkbox" id="f_cert">
+          <label for="f_cert">Halal certificate exists</label>
+        </div>
+        <div class="field"><label>Notes (optional)</label><textarea id="f_notes"></textarea></div>
+        <button type="submit" class="primary">Submit place</button>
+      </form>
+    </div>`;
+}
+
+function selectSubmitCategory(key) {
+  submitCategory = key;
+  document.querySelectorAll("#catPicker .cat-pill").forEach(el => el.classList.remove("selected"));
+  event.target.classList.add("selected");
+}
+function updateConfDesc(key) {
+  document.getElementById("confDesc").textContent = CONFIDENCE[key].desc;
+}
+
+async function handleSubmit(e) {
+  e.preventDefault();
+  const name = document.getElementById("f_name").value.trim();
+  const address = document.getElementById("f_address").value.trim();
+  const city = document.getElementById("f_city").value.trim();
+  if (!name || !address || !city) return;
+  if (!state.userId) { toast("Please sign in first."); return; }
+
+  if (!isValidMapsLink(address)) {
+    toast("Please paste a real Google Maps link (from Share → Copy Link).");
+    return;
+  }
+
+  try {
+    const newPlace = await api('/api/places', {
+      method: 'POST',
+      body: JSON.stringify({
+        name, address, city,
+        category: submitCategory,
+        details: document.getElementById("f_details").value.trim(),
+        confidence: document.getElementById("f_confidence").value,
+        hasCertificate: document.getElementById("f_cert").checked,
+        notes: document.getElementById("f_notes").value.trim(),
+        userId: state.userId
+      })
+    });
+    toast("Submitted — thank you!");
+    go("places", { category: newPlace.category, city: newPlace.city });
+  } catch (err) {
+    toast(err.message);
+  }
+}
+
+function promptUsername() {
+  const name = prompt("Your display name:", state.username);
+  if (name && name.trim()) {
+    state.username = name.trim();
+    render();
+  }
+}
+
+/* ============================================================
+   RENDER DISPATCH
+   ============================================================ */
+async function buildView() {
+  switch (state.view) {
+    case "login": return renderLogin();
+    case "name": return renderNameStep();
+    case "verify": return renderVerify();
+    case "home": return await renderHome();
+    case "cities": return await renderCities();
+    case "places": return await renderPlaces();
+    case "detail": return await renderDetail();
+    case "submit": return renderSubmit();
+    default: return renderLogin();
+  }
+}
+
+const PRE_AUTH_VIEWS = ["login", "name", "verify"];
+
+async function render() {
+  const app = document.getElementById("app");
+  if (!state.email && !PRE_AUTH_VIEWS.includes(state.view)) state.view = "login";
+
+  if (!PRE_AUTH_VIEWS.includes(state.view)) {
+    app.innerHTML = loadingShell();
+  }
+  try {
+    app.innerHTML = await buildView();
+  } catch (err) {
+    app.innerHTML = `${renderTopbar()}<div class="wrap"><div class="empty-state">Couldn't load this page: ${err.message}</div></div>`;
+  }
+}
+
+render();
+</script>
+</body>
+</html>
