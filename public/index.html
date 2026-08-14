@@ -691,11 +691,11 @@ function renderVerify() {
     <div class="login-screen">
       <div class="login-card">
         <div class="verify-icon">${icon('heart', '#E3A008')}</div>
-        <h1>Check your inbox</h1>
-        <p>We've sent a verification link to<br><span class="verify-email">${pendingEmail}</span>.
-        Click it, then come back and continue below.</p>
+        <h1>Verify yourself.</h1>
+        <p> I confirm this (<br><span class="verify-email">${pendingEmail}</span>) is my only account,
+        and I pledge to help keep the halal-food-community honest and trustworthy.</p>
         <div class="verify-actions">
-          <button class="primary" onclick="confirmVerified()">I've verified — Continue</button>
+          <button class="primary" onclick="confirmVerified()">I promise</button>
           <span class="resend-link" onclick="toast('Verification email re-sent (demo)')">Resend email</span>
           <span class="resend-link" onclick="go('login')">&larr; Back</span>
         </div>
