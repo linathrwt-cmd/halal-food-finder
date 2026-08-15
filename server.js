@@ -102,7 +102,7 @@ app.get('/api/cities', (req, res) => {
 
 const MAPS_LINK_RE = /^https?:\/\/(www\.)?(maps\.google\.[a-z.]+|google\.[a-z.]+\/maps|goo\.gl\/maps|maps\.app\.goo\.gl)\//i;
 
-const ALLOWED_CITIES = new Set([
+const ALLOWED_CITIES = new Set([ "Heidelberg", "Aschaffenburg",
   "Berlin", "Hamburg", "München", "Köln", "Frankfurt am Main", "Stuttgart",
   "Düsseldorf", "Leipzig", "Dortmund", "Essen", "Bremen", "Dresden",
   "Hannover", "Nürnberg", "Duisburg", "Bochum", "Wuppertal", "Bielefeld",
