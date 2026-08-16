@@ -689,22 +689,16 @@ async function handleEmailSubmit(e) {
     pendingEmail = email;
 
     if (lookup.exists) {
+      // Known email — always straight in. First-login-only name+pledge,
+      // not a repeat gate on every visit.
       const user = lookup.user;
       state.userId = user.id;
       state.name = user.name;
       state.email = email;
       state.username = user.name;
-
-      if (user.isEmailVerified) {
-        // Known + already verified — straight in, no re-verification.
-        go("home");
-      } else {
-        // Known but somehow never finished verifying — send back to that step.
-        pendingName = user.name;
-        go("verify");
-      }
+      go("home");
     } else {
-      // New email — need a name before we create the account.
+      // New email — need a name, then the one-time pledge screen.
       go("name");
     }
   } catch (err) {
@@ -761,48 +755,19 @@ function renderVerify() {
         <p>I confirm this is my only account, and I pledge to help keep this community honest and trustworthy.</p>
         <div class="verify-actions">
           <button class="primary" onclick="confirmVerified()">I promise</button>
-          <span class="resend-link" onclick="resendVerification()">Resend email</span>
           <span class="resend-link" onclick="go('login')">&larr; Back</span>
         </div>
       </div>
     </div>`;
 }
 
-// Checks the REAL verification status against the server — the actual
-// verifying happens when the user clicks the link in their email, which
-// hits /api/verify-email-link on the backend. This button just checks
-// whether that's happened yet.
+// "I promise" IS the confirmation now — there's no emailed link to wait for
+// anymore, so this just finalizes the session instead of polling the server.
 async function confirmVerified() {
-  try {
-    const lookup = await api(`/api/users/by-email?email=${encodeURIComponent(pendingEmail)}`);
-    if (lookup.exists && lookup.user.isEmailVerified) {
-      state.name = pendingName;
-      state.email = pendingEmail;
-      state.username = pendingName;
-      toast("Email verified!");
-      go("home");
-    } else {
-      toast("Not verified yet — check your inbox and click the link first.");
-    }
-  } catch (err) {
-    toast(err.message);
-  }
-}
-
-async function resendVerification() {
-  try {
-    const result = await api('/api/resend-verification', {
-      method: 'POST',
-      body: JSON.stringify({ email: pendingEmail })
-    });
-    if (result.alreadyVerified) {
-      toast("This email is already verified — try 'I've verified — Continue'.");
-    } else {
-      toast("Verification email sent — check your inbox.");
-    }
-  } catch (err) {
-    toast(err.message);
-  }
+  state.name = pendingName;
+  state.email = pendingEmail;
+  state.username = pendingName;
+  go("home");
 }
 
 function signOut() {
@@ -1316,4 +1281,5 @@ render();
 </script>
 </body>
 </html>
+
 
