@@ -96,3 +96,4 @@ try {
  
 db.dbPath = dbPath; // exposed so server.js can offer downloads/backups of the real file
 module.exports = db;
+
