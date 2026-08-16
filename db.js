@@ -24,6 +24,12 @@ console.log('========================================');
  
 const db = new Database(dbPath);
 db.pragma('journal_mode = WAL');
+// This app checks "does this user/place exist" manually before every
+// insert — it never relies on the database to cascade or enforce FK
+// integrity for us. Some SQLite builds enforce foreign keys by default,
+// which caused real crashes here (during migrations and normal voting).
+// Disabling it permanently removes that whole class of bugs.
+db.pragma('foreign_keys = OFF');
  
 db.exec(`
   CREATE TABLE IF NOT EXISTS users (
@@ -87,16 +93,9 @@ try {
 // Safe migration: add the "coiffeur" category to existing databases whose
 // CHECK constraint predates it. SQLite can't ALTER a CHECK constraint
 // directly, so this rebuilds the table and copies every row across by
-// explicit column name. Follows SQLite's documented procedure for table
-// rebuilds (foreign keys off -> rebuild in a transaction -> foreign keys
-// back on) to avoid "FOREIGN KEY constraint failed" errors on stricter
-// SQLite builds. No-op if this database already allows 'coiffeur' (e.g.
-// it was just created fresh from the schema above).
+// explicit column name. No-op if this database already allows 'coiffeur'.
 const placesTableInfo = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='places'").get();
 if (placesTableInfo && !placesTableInfo.sql.includes('coiffeur')) {
-  const fkWasOn = db.pragma('foreign_keys', { simple: true }) === 1;
-  if (fkWasOn) db.pragma('foreign_keys = OFF');
-
   const rebuildPlacesTable = db.transaction(() => {
     db.exec(`
       ALTER TABLE places RENAME TO places_old;
@@ -130,8 +129,6 @@ if (placesTableInfo && !placesTableInfo.sql.includes('coiffeur')) {
     `);
   });
   rebuildPlacesTable();
-
-  if (fkWasOn) db.pragma('foreign_keys = ON');
 }
  
 // One more loud diagnostic: how much data does this database actually have
