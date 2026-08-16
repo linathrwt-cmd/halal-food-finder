@@ -39,7 +39,7 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS places (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
-    category TEXT NOT NULL CHECK(category IN ('restaurant','supermarket','butcher')),
+    category TEXT NOT NULL CHECK(category IN ('restaurant','supermarket','butcher','coiffeur')),
     address TEXT NOT NULL,
     city TEXT NOT NULL,
     country TEXT NOT NULL DEFAULT '',
@@ -82,6 +82,56 @@ try {
   db.exec("ALTER TABLE places ADD COLUMN country TEXT NOT NULL DEFAULT ''");
 } catch (err) {
   // Column already exists — expected on every run after the first.
+}
+
+// Safe migration: add the "coiffeur" category to existing databases whose
+// CHECK constraint predates it. SQLite can't ALTER a CHECK constraint
+// directly, so this rebuilds the table and copies every row across by
+// explicit column name. Follows SQLite's documented procedure for table
+// rebuilds (foreign keys off -> rebuild in a transaction -> foreign keys
+// back on) to avoid "FOREIGN KEY constraint failed" errors on stricter
+// SQLite builds. No-op if this database already allows 'coiffeur' (e.g.
+// it was just created fresh from the schema above).
+const placesTableInfo = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='places'").get();
+if (placesTableInfo && !placesTableInfo.sql.includes('coiffeur')) {
+  const fkWasOn = db.pragma('foreign_keys', { simple: true }) === 1;
+  if (fkWasOn) db.pragma('foreign_keys = OFF');
+
+  const rebuildPlacesTable = db.transaction(() => {
+    db.exec(`
+      ALTER TABLE places RENAME TO places_old;
+
+      CREATE TABLE places (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        category TEXT NOT NULL CHECK(category IN ('restaurant','supermarket','butcher','coiffeur')),
+        address TEXT NOT NULL,
+        city TEXT NOT NULL,
+        country TEXT NOT NULL DEFAULT '',
+        details TEXT DEFAULT '',
+        notes TEXT DEFAULT '',
+        confidence TEXT NOT NULL CHECK(confidence IN ('certified','community','self')),
+        has_certificate INTEGER NOT NULL DEFAULT 0,
+        submitted_by_user_id TEXT NOT NULL,
+        submitted_by_name TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        FOREIGN KEY (submitted_by_user_id) REFERENCES users(id)
+      );
+
+      INSERT INTO places
+        (id, name, category, address, city, country, details, notes, confidence,
+         has_certificate, submitted_by_user_id, submitted_by_name, created_at)
+      SELECT
+        id, name, category, address, city, country, details, notes, confidence,
+        has_certificate, submitted_by_user_id, submitted_by_name, created_at
+      FROM places_old;
+
+      DROP TABLE places_old;
+    `);
+  });
+  rebuildPlacesTable();
+
+  if (fkWasOn) db.pragma('foreign_keys = ON');
 }
  
 // One more loud diagnostic: how much data does this database actually have
