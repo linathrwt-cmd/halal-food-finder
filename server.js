@@ -7,18 +7,10 @@ const db = require('./db');
 const app = express();
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public'))); // serves the website
+app.use(express.static(path.join(__dirname, 'public')));
 
 const id = () => crypto.randomUUID();
 
-// ---------- Users / auth ----------
-
-// Very simple email-based "login": creates the user if new, returns existing
-// user if the email is already known. No password — matches the site's
-// "name + email, then verify" flow. Real email sending isn't wired up yet
-// (see README) — is_email_verified starts at 0 until that's added.
-// Lets the frontend check if an email is already known before deciding
-// whether to ask for a name + show the verify screen, or log straight in.
 app.get('/api/users/by-email', (req, res) => {
   const email = (req.query.email || '').trim().toLowerCase();
   if (!email) return res.status(400).json({ error: 'Email is required.' });
@@ -44,17 +36,6 @@ app.post('/api/signup', (req, res) => {
   res.json(toUserJson(user));
 });
 
-// Mocked "verify" step for now — flips the flag immediately.
-// Swap this for a real emailed verification link/token when ready (see README).
-app.post('/api/verify-email', (req, res) => {
-  const { userId } = req.body;
-  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
-  if (!user) return res.status(404).json({ error: 'User not found.' });
-
-  db.prepare('UPDATE users SET is_email_verified = 1 WHERE id = ?').run(userId);
-  res.json(toUserJson(db.prepare('SELECT * FROM users WHERE id = ?').get(userId)));
-});
-
 function toUserJson(u) {
   return {
     id: u.id, name: u.name, email: u.email,
@@ -63,8 +44,6 @@ function toUserJson(u) {
     voteWeight: u.is_id_verified ? 2 : (u.is_email_verified ? 1 : 0)
   };
 }
-
-// ---------- Places ----------
 
 app.get('/api/category-counts', (req, res) => {
   const rows = db.prepare('SELECT category, COUNT(*) as count FROM places GROUP BY category').all();
@@ -139,12 +118,11 @@ app.post('/api/places', (req, res) => {
 
 app.post('/api/places/:placeId/vote', (req, res) => {
   const { placeId } = req.params;
-  const { userId, voteType } = req.body; // voteType: 'up' | 'down'
+  const { userId, voteType } = req.body;
   if (!['up', 'down'].includes(voteType)) return res.status(400).json({ error: 'Invalid vote type.' });
 
   const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
   if (!user) return res.status(404).json({ error: 'User not found.' });
-  if (!user.is_email_verified) return res.status(403).json({ error: 'Verify your email before voting.' });
 
   const place = db.prepare('SELECT * FROM places WHERE id = ?').get(placeId);
   if (!place) return res.status(404).json({ error: 'Place not found.' });
@@ -154,7 +132,6 @@ app.post('/api/places/:placeId/vote', (req, res) => {
 
   const tx = db.transaction(() => {
     if (existing && existing.vote_type === voteType) {
-      // toggle off
       db.prepare('DELETE FROM votes WHERE place_id = ? AND user_id = ?').run(placeId, userId);
     } else {
       db.prepare(`
@@ -184,7 +161,6 @@ app.post('/api/places/:placeId/comments', (req, res) => {
 
   const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
   if (!user) return res.status(404).json({ error: 'User not found.' });
-  if (!user.is_email_verified) return res.status(403).json({ error: 'Verify your email before commenting.' });
 
   const place = db.prepare('SELECT id FROM places WHERE id = ?').get(placeId);
   if (!place) return res.status(404).json({ error: 'Place not found.' });
@@ -197,7 +173,6 @@ app.post('/api/places/:placeId/comments', (req, res) => {
   res.json({ id: row.id, userId: row.user_id, username: row.username, text: row.text, createdAt: row.created_at });
 });
 
-// Only the comment's own author can delete it.
 app.delete('/api/comments/:commentId', (req, res) => {
   const { commentId } = req.params;
   const { userId } = req.body;
@@ -231,3 +206,4 @@ function toPlaceJson(p) {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Halal Finder API running on port ${PORT}`));
+
