@@ -3,7 +3,7 @@ const cors = require('cors');
 const crypto = require('crypto');
 const path = require('path');
 const db = require('./db');
-const { resolveCoordsFromMapsLink } = require('./geocode');
+const { resolveCoordinates } = require('./geocode');
 
 const app = express();
 app.use(cors());
@@ -139,10 +139,16 @@ app.post('/api/places', async (req, res) => {
   const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
   if (!user) return res.status(404).json({ error: 'User not found.' });
 
-  // Best-effort: pull lat/lng out of the Google Maps link so this place can
-  // show up on the map. Never blocks the submission — if it fails or times
-  // out, the place still saves, just without map coordinates for now.
-  const coords = await resolveCoordsFromMapsLink(address.trim());
+  // Best-effort: geocode by name/city/country via Nominatim (OpenStreetMap).
+  // Never blocks the submission — if it fails or times out, the place
+  // still saves, just without map coordinates for now. debug:true logs the
+  // attempt/result so failures show up in your server logs, not silently.
+  const coords = await resolveCoordinates({
+    name: name.trim(), city: city.trim(), country: country?.trim(), debug: true
+  });
+  if (!coords) {
+    console.log(`[GEOCODE] "${name.trim()}" (${city.trim()}) saved without map coordinates.`);
+  }
 
   const newId = id();
   db.prepare(`

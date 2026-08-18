@@ -1,95 +1,61 @@
-// Resolves a Google Maps share link (maps.app.goo.gl, goo.gl/maps, or a
-// full maps.google.com URL) into { latitude, longitude } — WITHOUT the
-// Google Maps/Places API, so it needs no API key and costs nothing.
+// Resolves a place's location into { latitude, longitude } using
+// Nominatim, OpenStreetMap's free geocoding search API. No API key, no
+// cost — and unlike scraping Google Maps redirect links, this is exactly
+// what Nominatim is built and licensed for, so there's no terms-of-service
+// gray area here.
 //
-// How: Google embeds coordinates directly in the URL once a short link is
-// followed to its real destination (e.g. .../@48.1374,11.5755,15z or
-// !3d48.1374!4d11.5755). We just follow the redirect chain a browser would
-// follow and pattern-match the coordinates out of wherever they land.
+// We geocode by the place's NAME plus city/country (not by parsing a
+// Google Maps link), since that's the input Nominatim's search endpoint
+// actually expects.
 //
-// This is best-effort: if Google changes their URL format, shows an
-// unexpected interstitial, or the link is slow/unreachable, we time out
-// and return null rather than block the place submission. Places without
-// coordinates simply won't appear on the map — everything else still works.
+// Nominatim's usage policy caps automated use at ~1 request/second and
+// requires a descriptive User-Agent identifying your app — see
+// NOMINATIM_USER_AGENT below. Replace the placeholder email with a real
+// contact before deploying, or requests may get rate-limited or blocked:
+// https://operations.osmfoundation.org/policies/nominatim/
+//
+// This is best-effort: uncommon or very new businesses may not be in
+// OpenStreetMap's data yet. If a place can't be resolved, we return null
+// and it simply won't appear on the map yet — everything else still works.
 
-const COORD_PATTERNS = [
-  /@(-?\d{1,3}\.\d+),(-?\d{1,3}\.\d+)/,               // .../@48.1374,11.5755,15z
-  /!3d(-?\d{1,3}\.\d+)!4d(-?\d{1,3}\.\d+)/,            // place-detail encoded coords
-  /[?&]q=(-?\d{1,3}\.\d+),(-?\d{1,3}\.\d+)(?:&|$)/,    // ...?q=48.1374,11.5755
-];
+const NOMINATIM_USER_AGENT = 'HalalFoodFinder/1.0 (community halal-place directory; contact: linathrwt@gmail.com';
 
-function extractCoords(text) {
-  if (!text) return null;
-  for (const pattern of COORD_PATTERNS) {
-    const match = text.match(pattern);
-    if (match) {
-      const latitude = parseFloat(match[1]);
-      const longitude = parseFloat(match[2]);
-      if (
-        Number.isFinite(latitude) && Number.isFinite(longitude) &&
-        Math.abs(latitude) <= 90 && Math.abs(longitude) <= 180
-      ) {
+async function resolveCoordinates({ name, city, country, debug = false } = {}, { timeoutMs = 6000 } = {}) {
+  const query = [name, city, country].filter(Boolean).join(', ');
+  const log = (...args) => { if (debug) console.log('[GEOCODE:nominatim]', ...args); };
+  if (!query) { log('no name/city/country given, nothing to geocode'); return null; }
+
+  const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(query)}`;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        // Required by Nominatim's usage policy — identify your app with
+        // real contact info, or requests may get rate-limited/blocked.
+        'User-Agent': NOMINATIM_USER_AGENT
+      }
+    });
+    if (!res.ok) { log('HTTP', res.status, 'for query', query); return null; }
+
+    const data = await res.json();
+    if (Array.isArray(data) && data.length > 0) {
+      const latitude = parseFloat(data[0].lat);
+      const longitude = parseFloat(data[0].lon);
+      if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
+        log('resolved', query, '->', latitude, longitude);
         return { latitude, longitude };
       }
     }
-  }
-  return null;
-}
-
-async function resolveCoordsFromMapsLink(mapsUrl, { timeoutMs = 6000, maxHops = 8 } = {}) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  let currentUrl = mapsUrl;
-
-  try {
-    for (let hop = 0; hop < maxHops; hop++) {
-      const direct = extractCoords(currentUrl);
-      if (direct) return direct;
-
-      let res;
-      try {
-        res = await fetch(currentUrl, {
-          method: 'GET',
-          redirect: 'manual',
-          signal: controller.signal,
-          headers: { 'User-Agent': 'Mozilla/5.0 (compatible; HalalFinderBot/1.0)' }
-        });
-      } catch (fetchErr) {
-        console.log('[GEOCODE] Fetch failed for', currentUrl, '-', fetchErr.message);
-        break;
-      }
-
-      const location = res.headers.get('location');
-      if (location) {
-        currentUrl = new URL(location, currentUrl).toString();
-        continue;
-      }
-
-      // Google sometimes shows an EU/regional consent interstitial instead
-      // of redirecting straight to the place. Its "continue" param holds
-      // the real destination — follow that as one more hop.
-      try {
-        const parsed = new URL(currentUrl);
-        if (parsed.hostname.includes('consent.google') && parsed.searchParams.has('continue')) {
-          currentUrl = decodeURIComponent(parsed.searchParams.get('continue'));
-          continue;
-        }
-      } catch (_) {
-        // malformed URL — nothing more we can do with it
-      }
-
-      const body = await res.text().catch(() => '');
-      const found = extractCoords(body) || extractCoords(currentUrl);
-      if (found) return found;
-
-      break;
-    }
+    log('no results for', query);
   } catch (err) {
-    console.log('[GEOCODE] Could not resolve coordinates for', mapsUrl, '-', err.message);
+    log('lookup failed for', query, '-', err.message);
   } finally {
     clearTimeout(timer);
   }
   return null;
 }
 
-module.exports = { resolveCoordsFromMapsLink, extractCoords };
+module.exports = { resolveCoordinates };
