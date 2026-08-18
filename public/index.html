@@ -6,6 +6,9 @@
 <title>Halal Finder</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<!-- Leaflet: renders the interactive map using free OpenStreetMap tiles, no API key required -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <style>
   :root {
     --linen: #FAF6EF;
@@ -154,6 +157,12 @@
   /* ---------- Section header ---------- */
   .section-head { margin: 28px 0 18px; }
   .section-head h2 { font-size: 28px; }
+  .section-head-row {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: 16px; flex-wrap: wrap; margin: 28px 0 18px;
+  }
+  .section-head-row .section-head { margin: 0; }
+  .section-head-row button { flex-shrink: 0; }
 
   input[type="text"], input[type="search"], input[type="url"], input[type="email"] {
     width: 100%;
@@ -472,6 +481,42 @@
   .comment-delete { cursor: pointer; text-transform: uppercase; letter-spacing: .05em; }
   .comment-delete:hover { color: var(--sumac); }
   .comment-empty { font-size: 13px; color: var(--clay); margin-top: 14px; }
+
+  /* ---------- Map ---------- */
+  .map-cta {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px; text-transform: uppercase; letter-spacing: .06em;
+    color: var(--basil);
+    border: 1.5px solid var(--basil);
+    border-radius: 999px;
+    padding: 10px 16px;
+    cursor: pointer;
+    background: transparent;
+    margin: -6px 0 26px;
+    transition: background .12s ease, color .12s ease;
+  }
+  .map-cta:hover { background: var(--basil); color: var(--linen); }
+
+  .map-legend {
+    display: flex; gap: 18px; flex-wrap: wrap;
+    margin: 12px 0 2px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px; color: var(--clay);
+    text-transform: uppercase; letter-spacing: .05em;
+  }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .legend-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+
+  .leaflet-map {
+    width: 100%; height: 480px;
+    margin-top: 12px; margin-bottom: 30px;
+    border: 1px solid var(--paper-line);
+    border-radius: 6px;
+    box-shadow: 0 10px 26px rgba(31,61,43,0.06);
+  }
+  .leaflet-popup-content { font-family: 'Public Sans', sans-serif; font-size: 13px; }
+  .leaflet-popup-content a { color: var(--sumac); font-weight: 600; }
 
   @media (max-width: 560px) {
     .topbar, .wrap { padding-left: 18px; padding-right: 18px; }
@@ -844,6 +889,8 @@ async function renderHome() {
 
       <div id="searchResults"></div>
 
+      <div class="map-cta" onclick="go('map')">${icon('pin', 'currentColor')} View all places on a map</div>
+
       <div class="stub-list" id="categoryBoxes">${stubs}</div>
     </div>`;
 }
@@ -902,16 +949,16 @@ async function renderCities() {
     ${renderTopbar()}
     <div class="wrap">
       <div class="back-row" onclick="go('home')">&larr; All categories</div>
-      <div class="section-head">
-        <div class="eyebrow">${cat.label}</div>
-        <h2>Choose a city</h2>
+      <div class="section-head-row">
+        <div class="section-head">
+          <div class="eyebrow">${cat.label}</div>
+          <h2>Choose a city</h2>
+        </div>
+        <button class="primary" onclick="go('submit', {city:null})">+ Submit a ${cat.label.toLowerCase().slice(0, -1)}</button>
       </div>
       <input type="search" id="citySearch" placeholder="Search cities…" oninput="filterCities(this.value)">
       <div id="cityRows">${rows}</div>
       ${empty}
-      <div style="margin-top:26px;">
-        <button class="primary" onclick="go('submit', {city:null})">+ Submit a ${cat.label.toLowerCase().slice(0, -1)}</button>
-      </div>
     </div>`;
 }
 
@@ -930,7 +977,7 @@ function placeCardHtml(p, opts = {}) {
   const conf = CONFIDENCE[p.confidence];
   const showCategory = opts.showCategory && CATEGORIES[p.category];
   return `
-    <div class="ticket" onclick="go('detail', {placeId:'${p.id}'})">
+    <div class="ticket" data-name="${escapeHtml(p.name)}" onclick="go('detail', {placeId:'${p.id}'})">
       <div class="ticket-main">
         <h3>${p.name}</h3>
         <div class="ticket-addr" onclick="event.stopPropagation()"><a href="${p.address}" target="_blank" rel="noopener">📍 View on Google Maps ↗</a></div>
@@ -961,16 +1008,111 @@ async function renderPlaces() {
     ${renderTopbar()}
     <div class="wrap">
       <div class="back-row" onclick="go('cities')">&larr; ${cat.label} cities</div>
-      <div class="section-head">
-        <div class="eyebrow">${cat.label} in</div>
-        <h2>${state.city}</h2>
-      </div>
-      <div class="ticket-grid">${cards}</div>
-      ${empty}
-      <div style="margin-top:26px;">
+      <div class="section-head-row">
+        <div class="section-head">
+          <div class="eyebrow">${cat.label} in</div>
+          <h2>${state.city}</h2>
+        </div>
         <button class="primary" onclick="go('submit')">+ Submit a place here</button>
       </div>
+      <input type="search" id="placeSearch" placeholder="Search places in ${state.city}…" oninput="filterPlaces(this.value)">
+      <div class="ticket-grid" id="placeGrid">${cards}</div>
+      <div class="empty-state" id="placeSearchEmpty" style="display:none;">No places match your search.</div>
+      ${empty}
     </div>`;
+}
+
+function filterPlaces(q) {
+  const query = q.trim().toLowerCase();
+  const cards = document.querySelectorAll("#placeGrid .ticket");
+  let anyVisible = false;
+  cards.forEach(card => {
+    const match = (card.dataset.name || "").toLowerCase().includes(query);
+    card.style.display = match ? "" : "none";
+    if (match) anyVisible = true;
+  });
+  const noResults = document.getElementById("placeSearchEmpty");
+  if (noResults) noResults.style.display = (!anyVisible && cards.length > 0) ? "block" : "none";
+}
+
+/* ============================================================
+   MAP
+   Interactive map of every place we have coordinates for, using
+   Leaflet + free OpenStreetMap tiles (no Google Maps API key needed).
+   Coordinates are resolved server-side from each place's Google Maps
+   link at submission time — places submitted before that existed (or
+   whose link couldn't be resolved) just won't have a pin yet.
+   ============================================================ */
+function renderMap() {
+  return `
+    ${renderTopbar()}
+    <div class="wrap">
+      <div class="back-row" onclick="go('home')">&larr; Home</div>
+      <div class="section-head">
+        <div class="eyebrow">Browse</div>
+        <h2>All places on the map</h2>
+      </div>
+      <div class="map-legend" id="mapLegend"></div>
+      <div id="leafletMap" class="leaflet-map"></div>
+      <div id="mapEmpty"></div>
+    </div>`;
+}
+
+let leafletMapInstance = null;
+async function initLeafletMap() {
+  const legendEl = document.getElementById("mapLegend");
+  const emptyEl = document.getElementById("mapEmpty");
+  const mapEl = document.getElementById("leafletMap");
+  if (!legendEl || !mapEl) return; // user already navigated away
+
+  legendEl.innerHTML = Object.entries(CATEGORIES).map(([key, c]) => `
+    <span class="legend-item"><span class="legend-dot" style="background:${accentFg(key)}"></span>${c.label}</span>
+  `).join("");
+
+  let places;
+  try {
+    places = await api('/api/places/map');
+  } catch (err) {
+    mapEl.style.display = "none";
+    emptyEl.innerHTML = `<div class="empty-state">Couldn't load the map: ${err.message}</div>`;
+    return;
+  }
+
+  if (leafletMapInstance) {
+    leafletMapInstance.remove();
+    leafletMapInstance = null;
+  }
+
+  if (places.length === 0) {
+    mapEl.style.display = "none";
+    emptyEl.innerHTML = `<div class="empty-state">No places have map coordinates yet. Newly submitted places are pinned automatically.</div>`;
+    return;
+  }
+  mapEl.style.display = "";
+  emptyEl.innerHTML = "";
+
+  const map = L.map("leafletMap");
+  leafletMapInstance = map;
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors'
+  }).addTo(map);
+
+  const markers = places.map(p => {
+    const color = accentFg(p.category);
+    const marker = L.circleMarker([p.latitude, p.longitude], {
+      radius: 8, color: "#fff", weight: 2, fillColor: color, fillOpacity: 1
+    }).addTo(map);
+    marker.bindPopup(`
+      <strong>${escapeHtml(p.name)}</strong><br/>
+      <span style="color:${color};">${CATEGORIES[p.category].label} · ${escapeHtml(p.city)}</span><br/>
+      <a href="#" onclick="go('detail', {placeId:'${p.id}'}); return false;">View details →</a>
+    `);
+    return marker;
+  });
+
+  const group = L.featureGroup(markers);
+  map.fitBounds(group.getBounds().pad(0.15));
 }
 
 /* ============================================================
@@ -1256,6 +1398,7 @@ async function buildView() {
     case "places": return await renderPlaces();
     case "detail": return await renderDetail();
     case "submit": return renderSubmit();
+    case "map": return renderMap();
     default: return renderLogin();
   }
 }
@@ -1272,6 +1415,7 @@ async function render() {
   try {
     app.innerHTML = await buildView();
     if (state.view === "submit") updateCityOptions();
+    if (state.view === "map") await initLeafletMap();
   } catch (err) {
     app.innerHTML = `${renderTopbar()}<div class="wrap"><div class="empty-state">Couldn't load this page: ${err.message}</div></div>`;
   }
@@ -1281,5 +1425,8 @@ render();
 </script>
 </body>
 </html>
+
+
+
 
 
