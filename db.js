@@ -53,6 +53,8 @@ db.exec(`
     notes TEXT DEFAULT '',
     confidence TEXT NOT NULL CHECK(confidence IN ('certified','community','self')),
     has_certificate INTEGER NOT NULL DEFAULT 0,
+    latitude REAL,
+    longitude REAL,
     submitted_by_user_id TEXT NOT NULL,
     submitted_by_name TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -90,6 +92,20 @@ try {
   // Column already exists — expected on every run after the first.
 }
 
+// Safe migration: add latitude/longitude for databases created before the
+// map feature existed. Nullable — places without resolvable coordinates
+// (yet) simply won't appear on the map. Harmless no-op if already present.
+try {
+  db.exec("ALTER TABLE places ADD COLUMN latitude REAL");
+} catch (err) {
+  // Column already exists — expected on every run after the first.
+}
+try {
+  db.exec("ALTER TABLE places ADD COLUMN longitude REAL");
+} catch (err) {
+  // Column already exists — expected on every run after the first.
+}
+
 // Safe migration: add the "coiffeur" category to existing databases whose
 // CHECK constraint predates it. SQLite can't ALTER a CHECK constraint
 // directly, so this rebuilds the table and copies every row across by
@@ -111,6 +127,8 @@ if (placesTableInfo && !placesTableInfo.sql.includes('coiffeur')) {
         notes TEXT DEFAULT '',
         confidence TEXT NOT NULL CHECK(confidence IN ('certified','community','self')),
         has_certificate INTEGER NOT NULL DEFAULT 0,
+        latitude REAL,
+        longitude REAL,
         submitted_by_user_id TEXT NOT NULL,
         submitted_by_name TEXT NOT NULL,
         created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -119,10 +137,10 @@ if (placesTableInfo && !placesTableInfo.sql.includes('coiffeur')) {
 
       INSERT INTO places
         (id, name, category, address, city, country, details, notes, confidence,
-         has_certificate, submitted_by_user_id, submitted_by_name, created_at)
+         has_certificate, latitude, longitude, submitted_by_user_id, submitted_by_name, created_at)
       SELECT
         id, name, category, address, city, country, details, notes, confidence,
-        has_certificate, submitted_by_user_id, submitted_by_name, created_at
+        has_certificate, latitude, longitude, submitted_by_user_id, submitted_by_name, created_at
       FROM places_old;
 
       DROP TABLE places_old;

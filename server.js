@@ -3,6 +3,7 @@ const cors = require('cors');
 const crypto = require('crypto');
 const path = require('path');
 const db = require('./db');
+const { resolveCoordsFromMapsLink } = require('./geocode');
 
 const app = express();
 app.use(cors());
@@ -52,6 +53,39 @@ app.get('/api/category-counts', (req, res) => {
   res.json(counts);
 });
 
+// IMPORTANT: these two routes must stay ABOVE /api/places/:placeId —
+// Express matches routes in order, so if :placeId came first it would
+// swallow /api/places/search and /api/places/map as if "search" or "map"
+// were a place id.
+app.get('/api/places/search', (req, res) => {
+  const q = (req.query.q || '').trim();
+  if (!q) return res.json([]);
+
+  const like = `%${q.replace(/[%_]/g, '\\$&')}%`;
+  const rows = db.prepare(
+    `SELECT * FROM places WHERE name LIKE ? ESCAPE '\\' ORDER BY name COLLATE NOCASE LIMIT 50`
+  ).all(like);
+
+  // Names that start with the query read as more relevant than names that
+  // merely contain it somewhere in the middle — surface those first.
+  const qLower = q.toLowerCase();
+  rows.sort((a, b) => {
+    const aStarts = a.name.toLowerCase().startsWith(qLower) ? 0 : 1;
+    const bStarts = b.name.toLowerCase().startsWith(qLower) ? 0 : 1;
+    return aStarts - bStarts;
+  });
+
+  res.json(rows.map(toPlaceJson));
+});
+
+app.get('/api/places/map', (req, res) => {
+  // Only places we've successfully resolved coordinates for can be pinned.
+  const rows = db.prepare(
+    'SELECT * FROM places WHERE latitude IS NOT NULL AND longitude IS NOT NULL'
+  ).all();
+  res.json(rows.map(toPlaceJson));
+});
+
 app.get('/api/places/:placeId', (req, res) => {
   const place = db.prepare('SELECT * FROM places WHERE id = ?').get(req.params.placeId);
   if (!place) return res.status(404).json({ error: 'Place not found.' });
@@ -91,8 +125,8 @@ const ALLOWED_CITIES = new Set([ "Heidelberg", "Aschaffenburg",
   "Krefeld", "Lübeck", "Oberhausen", "Erfurt", "Mainz", "Rostock", "Kassel"
 ]);
 
-app.post('/api/places', (req, res) => {
-  const { name, category, address, city, details, notes, confidence, hasCertificate, userId } = req.body;
+app.post('/api/places', async (req, res) => {
+  const { name, category, address, city, country, details, notes, confidence, hasCertificate, userId } = req.body;
   if (!name?.trim() || !address?.trim() || !city?.trim() || !userId) {
     return res.status(400).json({ error: 'Name, address, city, and userId are required.' });
   }
@@ -105,13 +139,18 @@ app.post('/api/places', (req, res) => {
   const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
   if (!user) return res.status(404).json({ error: 'User not found.' });
 
+  // Best-effort: pull lat/lng out of the Google Maps link so this place can
+  // show up on the map. Never blocks the submission — if it fails or times
+  // out, the place still saves, just without map coordinates for now.
+  const coords = await resolveCoordsFromMapsLink(address.trim());
+
   const newId = id();
   db.prepare(`
     INSERT INTO places
-      (id, name, category, address, city, details, notes, confidence, has_certificate, submitted_by_user_id, submitted_by_name)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(newId, name.trim(), category, address.trim(), city.trim(), details || '', notes || '',
-         confidence, hasCertificate ? 1 : 0, userId, user.name);
+      (id, name, category, address, city, country, details, notes, confidence, has_certificate, latitude, longitude, submitted_by_user_id, submitted_by_name)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(newId, name.trim(), category, address.trim(), city.trim(), country?.trim() || '', details || '', notes || '',
+         confidence, hasCertificate ? 1 : 0, coords?.latitude ?? null, coords?.longitude ?? null, userId, user.name);
 
   res.json(toPlaceJson(db.prepare('SELECT * FROM places WHERE id = ?').get(newId)));
 });
@@ -198,8 +237,9 @@ function toPlaceJson(p) {
   const downvotes = votes.filter(v => v.vote_type === 'down').reduce((s, v) => s + v.weight, 0);
   return {
     id: p.id, name: p.name, category: p.category, address: p.address, city: p.city,
-    details: p.details, notes: p.notes, confidence: p.confidence,
+    country: p.country || '', details: p.details, notes: p.notes, confidence: p.confidence,
     hasCertificate: !!p.has_certificate, submittedBy: p.submitted_by_name,
+    latitude: p.latitude ?? null, longitude: p.longitude ?? null,
     upvotes, downvotes, trustScore: upvotes - downvotes
   };
 }
